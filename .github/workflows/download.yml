@@ -24,22 +24,11 @@ jobs:
           echo "=== convert xapk to apks ==="
           for X in *.xapk; do
             [ -e "$X" ] || continue
-            D="${X%.xapk}_dir"; mkdir -p "$D"; unzip -o -q "$X" -d "$D"
-            OUT="${X%%:*}.apks"
-            python3 -c "
-import zipfile, glob, os
-d = r'$D'
-out = r'$OUT'
-files = ['base.apk'] + sorted(os.path.basename(f) for f in glob.glob(os.path.join(d, 'split_*.apk')))
-with zipfile.ZipFile(out, 'w', zipfile.ZIP_STORED) as z:
-    for f in files:
-        p = os.path.join(d, f)
-        if os.path.exists(p):
-            z.write(p, f)
-        else:
-            print('MISSING', f)
-print('created', out)
-"
+            D="${X%.xapk}_dir"
+            mkdir -p "$D"
+            unzip -o -q "$X" -d "$D"
+            OUT="$(echo "${X%.xapk}" | tr ':' '_').apks"
+            (cd "$D" && zip -0 -q "../$OUT" base.apk split_*.apk)
           done
           mkdir -p "$GITHUB_WORKSPACE/out"
           for f in *.apks; do [ -e "$f" ] && mv "$f" "$GITHUB_WORKSPACE/out/"; done
@@ -48,7 +37,6 @@ print('created', out)
             case "$f" in base.apk|split_*) ;; *) mv "$f" "$GITHUB_WORKSPACE/out/";; esac
           done
           cd "$GITHUB_WORKSPACE/out"
-          for f in *:*; do [ -e "$f" ] && mv "$f" "$(echo "$f" | tr ':' '_')"; done
           echo "=== final ==="; ls -la; sha256sum * || true
       - name: Upload artifact
         uses: actions/upload-artifact@v4
