@@ -32,8 +32,9 @@ jobs:
             java -jar uber-apk-signer.jar -a merged.apk --allowResign --out signed_out
             SIGNED=$(find signed_out -name "*.apk" | head -1)
             mv "$SIGNED" "final-signed.apk"
+            rm -f merged.apk
           fi
-          find . -maxdepth 1 -type f ! -name "*.jar" -delete
+          rm -f *.jar *.idsig
           echo "=== final ==="; ls -la
       - name: Upload artifact
         uses: actions/upload-artifact@v4
