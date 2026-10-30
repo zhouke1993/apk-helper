@@ -35,11 +35,9 @@ jobs:
           fi
           find . -maxdepth 1 -type f ! -name "*.jar" -delete
           echo "=== final ==="; ls -la
-      - name: Create release
-        if: hashFiles('out/*') != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          cd "$GITHUB_WORKSPACE/out"
-          gh release create dl-"$GITHUB_RUN_ID" ./* -R zhouke1993/apk-helper --title "${{ github.event.inputs.pkg }}" --notes "auto"
-          gh release view dl-"$GITHUB_RUN_ID" -R zhouke1993/apk-helper --json assets
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-out
+          path: out/*
+          if-no-files-found: error
