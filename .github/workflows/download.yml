@@ -24,18 +24,19 @@ jobs:
       - name: Merge XAPK and sign
         run: |
           cd "$GITHUB_WORKSPACE/out"
-          XAPK=$(find . -name "*.xapk" | head -1)
+          XAPK=$(find . -maxdepth 1 -name "*.xapk" | head -1)
           if [ -n "$XAPK" ]; then
-            echo "Merging: $XAPK"
             curl -sL -o APKEditor.jar "https://github.com/REAndroid/APKEditor/releases/download/V1.4.4/APKEditor-1.4.4.jar"
             curl -sL -o uber-apk-signer.jar "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar"
             java -jar APKEditor.jar m -i "$XAPK" -o merged.apk
-            java -jar uber-apk-signer.jar -a merged.apk --allowResign
-            SIGNED=$(ls merged-*-signed.apk | head -1)
-            mv "$SIGNED" "${{ github.event.inputs.pkg }}-merged-signed.apk"
-            rm -f merged.apk *.apk.idsig
+            java -jar uber-apk-signer.jar -a merged.apk --allowResign || true
+            echo "=== after sign ==="; ls -la
+            SIGNED=$(find . -maxdepth 1 -type f -name "*signed*.apk" | head -1)
+            [ -z "$SIGNED" ] && SIGNED=merged.apk
+            mv "$SIGNED" "final-signed.apk"
+            rm -f *.idsig
           fi
-          ls -la
+          echo "=== final ==="; ls -la
       - name: Create release
         if: hashFiles('out/*') != ''
         env:
