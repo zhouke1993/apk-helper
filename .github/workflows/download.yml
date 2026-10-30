@@ -1,0 +1,35 @@
+name: download-apk
+on:
+  workflow_dispatch:
+    inputs:
+      pkg:
+        description: 'Android package name'
+        default: 'com.forgerock.authenticator'
+jobs:
+  dl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build APKPure CLI
+        run: |
+          git clone --depth 1 https://github.com/android-security-engineer/ApkPureSkills.git
+          cd ApkPureSkills
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Download package
+        run: |
+          cd ApkPureSkills
+          node dist/cli.cjs download "${{ github.event.inputs.pkg }}" -o "$GITHUB_WORKSPACE/out"
+          echo "=== files ==="
+          ls -la "$GITHUB_WORKSPACE/out"
+          sha256sum "$GITHUB_WORKSPACE/out"/* || true
+      - name: Create release with APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$GITHUB_WORKSPACE/out"
+          F=$(find . -type f \( -name "*.apk" -o -name "*.xapk" \) | head -1)
+          echo "Uploading: $F"
+          gh release create dl-"$GITHUB_RUN_ID" "$F" --title "ForgeRock Authenticator 3.3.2" --notes "Auto-downloaded via APKPure API. Verify SHA-256: 5c5307d833241f68cb99b4906be6ab76d2c861bbbdbae056edd37f131cd226d7"
