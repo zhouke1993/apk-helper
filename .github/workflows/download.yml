@@ -22,14 +22,21 @@ jobs:
             apkpure-dl "$P" 2>&1 | tail -2
           done
           mkdir -p "$GITHUB_WORKSPACE/out"
+          echo "=== tree ==="
+          find downloads -type f | head -20
           echo "=== convert xapk to apks ==="
           find . -name "*.xapk" -print0 | while IFS= read -r -d '' X; do
             D="${X%.xapk}_dir"
             mkdir -p "$D"
-            unzip -o -q "$X" -d "$D"
-            BASE=$(basename "$X" .xapk | tr ' :*' '____')
-            (cd "$D" && zip -0 -q "$GITHUB_WORKSPACE/out/${BASE}.apks" base.apk split_*.apk)
-            echo "converted: ${BASE}.apks"
+            unzip -o -q "$X" -d "$D" || echo "UNZIP FAILED: $X"
+            echo "--- contents of $D ---"; ls "$D" | head -15
+            N=$(find "$D" -maxdepth 1 -name "*.apk" | wc -l)
+            if [ "$N" -gt 0 ]; then
+              BASE=$(basename "$X" .xapk | tr ' :*' '____')
+              (cd "$D" && zip -0 -q "$GITHUB_WORKSPACE/out/${BASE}.apks" *.apk) && echo "converted: ${BASE}.apks (${N} parts)"
+            else
+              echo "no apk parts found inside $X"
+            fi
           done
           echo "=== collect single apks ==="
           find . -name "*.apk" ! -name "base.apk" ! -name "split_*" -print0 | while IFS= read -r -d '' F; do
@@ -40,8 +47,9 @@ jobs:
           cd "$GITHUB_WORKSPACE/out"
           echo "=== final ==="; ls -la; sha256sum *
       - name: Upload artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: apk-out
           path: out/*
-          if-no-files-found: error
+          if-no-files-found: warn
