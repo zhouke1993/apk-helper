@@ -19,25 +19,26 @@ jobs:
           IFS=',' read -ra PKGS <<< "${{ github.event.inputs.pkg }}"
           for P in "${PKGS[@]}"; do
             echo "=== downloading $P ==="
-            apkpure-dl "$P" 2>&1 | tail -4
+            apkpure-dl "$P" 2>&1 | tail -2
           done
+          mkdir -p "$GITHUB_WORKSPACE/out"
           echo "=== convert xapk to apks ==="
-          for X in *.xapk; do
-            [ -e "$X" ] || continue
+          find . -name "*.xapk" -print0 | while IFS= read -r -d '' X; do
             D="${X%.xapk}_dir"
             mkdir -p "$D"
             unzip -o -q "$X" -d "$D"
-            OUT="$(echo "${X%.xapk}" | tr ':' '_').apks"
-            (cd "$D" && zip -0 -q "../$OUT" base.apk split_*.apk)
+            BASE=$(basename "$X" .xapk | tr ' :*' '____')
+            (cd "$D" && zip -0 -q "$GITHUB_WORKSPACE/out/${BASE}.apks" base.apk split_*.apk)
+            echo "converted: ${BASE}.apks"
           done
-          mkdir -p "$GITHUB_WORKSPACE/out"
-          for f in *.apks; do [ -e "$f" ] && mv "$f" "$GITHUB_WORKSPACE/out/"; done
-          for f in *.apk; do
-            [ -e "$f" ] || continue
-            case "$f" in base.apk|split_*) ;; *) mv "$f" "$GITHUB_WORKSPACE/out/";; esac
+          echo "=== collect single apks ==="
+          find . -name "*.apk" ! -name "base.apk" ! -name "split_*" -print0 | while IFS= read -r -d '' F; do
+            B=$(basename "$F" | tr ' :*' '____')
+            mv "$F" "$GITHUB_WORKSPACE/out/${B}"
+            echo "collected: ${B}"
           done
           cd "$GITHUB_WORKSPACE/out"
-          echo "=== final ==="; ls -la; sha256sum * || true
+          echo "=== final ==="; ls -la; sha256sum *
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
