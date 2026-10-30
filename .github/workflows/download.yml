@@ -29,13 +29,11 @@ jobs:
             curl -sL -o APKEditor.jar "https://github.com/REAndroid/APKEditor/releases/download/V1.4.4/APKEditor-1.4.4.jar"
             curl -sL -o uber-apk-signer.jar "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar"
             java -jar APKEditor.jar m -i "$XAPK" -o merged.apk
-            java -jar uber-apk-signer.jar -a merged.apk --allowResign || true
-            echo "=== after sign ==="; ls -la
-            SIGNED=$(find . -maxdepth 1 -type f -name "*signed*.apk" | head -1)
-            [ -z "$SIGNED" ] && SIGNED=merged.apk
+            java -jar uber-apk-signer.jar -a merged.apk --allowResign --out signed_out
+            SIGNED=$(find signed_out -name "*.apk" | head -1)
             mv "$SIGNED" "final-signed.apk"
-            rm -f *.idsig
           fi
+          find . -maxdepth 1 -type f ! -name "*.jar" -delete
           echo "=== final ==="; ls -la
       - name: Create release
         if: hashFiles('out/*') != ''
@@ -43,5 +41,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd "$GITHUB_WORKSPACE/out"
-          gh release create dl-"$GITHUB_RUN_ID" ./* --title "${{ github.event.inputs.pkg }}" --notes "auto"
-          gh release view dl-"$GITHUB_RUN_ID" --json assets
+          gh release create dl-"$GITHUB_RUN_ID" ./* -R zhouke1993/apk-helper --title "${{ github.event.inputs.pkg }}" --notes "auto"
+          gh release view dl-"$GITHUB_RUN_ID" -R zhouke1993/apk-helper --json assets
