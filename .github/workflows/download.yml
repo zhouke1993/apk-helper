@@ -4,38 +4,26 @@ on:
     inputs:
       pkg:
         description: 'Android package name'
-        default: 'com.forgerock.authenticator'
+        default: 'com.veritickets.android'
 jobs:
   dl:
     runs-on: ubuntu-latest
     steps:
-      - name: Diagnose API reachability
+      - name: Download via apkpure-dl
         run: |
-          echo "--- tapi ---"; curl -s -o /dev/null -w "%{http_code}\n" --max-time 10 https://tapi.pureapk.com || true
-          echo "--- hyapi ---"; curl -s -o /dev/null -w "%{http_code}\n" --max-time 10 https://hyapi.pureapk.com || true
-      - name: Try python apkpure-dl
-        run: |
-          python3 -m pip install -q pipx 2>/dev/null || true
           git clone --depth 1 https://github.com/codewithwan/apkpure-downloader.git
           cd apkpure-downloader
-          python3 -m pip install -q -e . 2>&1 | tail -2
-          apkpure-dl "${{ github.event.inputs.pkg }}" --json-only > info.json 2> pyerr.log || true
-          cat pyerr.log || true
-          head -c 500 info.json || true
-      - name: Full download
-        run: |
-          cd apkpure-downloader
+          python3 -m pip install -q -e . 2>&1 | tail -1
           mkdir -p "$GITHUB_WORKSPACE/out"
           apkpure-dl "${{ github.event.inputs.pkg }}" 2>&1 | tee dl.log
-          find . -name "*.xapk" -o -name "*.apk" | head
-          cp -v $(find . -name "*.xapk" -o -name "*.apk" | head -1) "$GITHUB_WORKSPACE/out/" || echo "COPY_FAILED"
+          find . -type f \( -name "*.xapk" -o -name "*.apk" \) -print0 | while IFS= read -r -d '' F; do cp -v "$F" "$GITHUB_WORKSPACE/out/"; done
           ls -la "$GITHUB_WORKSPACE/out"
+          sha256sum "$GITHUB_WORKSPACE/out"/* || true
       - name: Create release
         if: hashFiles('out/*') != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd "$GITHUB_WORKSPACE/out"
-          F=$(find . -type f \( -name "*.apk" -o -name "*.xapk" \) | head -1)
-          sha256sum "$F"
-          gh release create dl-"$GITHUB_RUN_ID" "$F" --title "ForgeRock Authenticator" --notes "Auto-downloaded. Verify SHA-256: 5c5307d833241f68cb99b4906be6ab76d2c861bbbdbae056edd37f131cd226d7"
+          gh release create dl-"$GITHUB_RUN_ID" *.apk *.xapk 2>/dev/null || gh release create dl-"$GITHUB_RUN_ID" *.apk || gh release create dl-"$GITHUB_RUN_ID" *.xapk
+          gh release view dl-"$GITHUB_RUN_ID" --json assets
