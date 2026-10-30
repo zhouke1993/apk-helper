@@ -34,7 +34,7 @@ jobs:
             mv "$SIGNED" "final-signed.apk"
             rm -f merged.apk
           fi
-          rm -f *.jar *.idsig
+          rm -f *.jar *.idsig *.xapk
           echo "=== final ==="; ls -la
       - name: Upload artifact
         uses: actions/upload-artifact@v4
